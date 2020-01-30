@@ -13,6 +13,9 @@
 #include <string.h>
 #include <pwd.h>
 
+#include "lock.bitmap"
+#include "mask.bitmap"
+
 #ifdef NEED_SHADOW
 #include <shadow.h>
 #endif
@@ -22,9 +25,12 @@ main(int argc, char *argv[])
 {
     Display *display;
     Window root;
-    int len = 0, i;
+    int len = 0, i, ret;
     XEvent ev;
     char keybuffer[1024], *passwd;
+    Cursor cursor;
+    Pixmap csr_source,csr_mask;
+    XColor csr_fg, csr_bg, dummy, black;
 
     if (argc > 1) {
 	setenv("XLPASSWD", argv[1], 1);
@@ -65,7 +71,21 @@ main(int argc, char *argv[])
     }
 
     root = DefaultRootWindow(display);
-    XGrabPointer(display, root, 1, ButtonPress, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
+
+    csr_source= XCreateBitmapFromData(display, root,lock_bits,lock_width,lock_height);
+    csr_mask= XCreateBitmapFromData(display, root,mask_bits,mask_width,mask_height);
+
+    ret = XAllocNamedColor(display, DefaultColormap(display, DefaultScreen(display)), "steelblue3", &dummy, &csr_bg);
+
+    if (ret==0) XAllocNamedColor(display, DefaultColormap(display, DefaultScreen(display)), "black", &dummy, &csr_bg);
+
+    ret = XAllocNamedColor(display, DefaultColormap(display,DefaultScreen(display)), "grey25", &dummy, &csr_fg);
+
+    if (ret==0) XAllocNamedColor(display, DefaultColormap(display, DefaultScreen(display)), "white", &dummy, &csr_bg);
+
+    cursor= XCreatePixmapCursor(display,csr_source,csr_mask,&csr_fg,&csr_bg, lock_x_hot,lock_y_hot);
+
+    XGrabPointer(display, root, False, ButtonPress, GrabModeAsync, GrabModeAsync, None, cursor, CurrentTime);
     XGrabKeyboard(display, root, 0, GrabModeAsync, GrabModeAsync, CurrentTime);
     XSelectInput(display, root, KeyPressMask);
 
